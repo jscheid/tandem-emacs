@@ -1,0 +1,3 @@
+[submodule "tandem"]
+	path = tandem
+	url = https://github.com/typeintandem/tandem.git
