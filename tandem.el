@@ -248,6 +248,7 @@ JSON message."
                 process-environment))
          (process
           (make-process
+           :connection-type 'pipe
            :name "tandem"
            :command (list
                      (locate-file "python3" exec-path)
