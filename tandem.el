@@ -49,11 +49,14 @@
 
 (defvar tandem-log-level tandem-log-level-info)
 
+(defvar-local tandem-mode nil)
 (defvar-local tandem-process nil)
 (defvar-local tandem-positions nil)
 (defvar-local tandem-session-id nil)
 (defvar-local tandem-old-buffer-contents nil)
 (defvar-local tandem-old-point nil)
+
+(add-to-list 'minor-mode-alist '(tandem-mode " Tandem"))
 
 (defun tandem-row-column (point)
   "Turn a point into a row/column plist.
@@ -298,6 +301,7 @@ SESSION-ID is the session ID to look for."
                tandem-session-id)
     (let ((process (tandem-create-process)))
       (process-put process 'buffer (current-buffer))
+      (setq tandem-mode t)
       (setq tandem-process process)
       (tandem-send-message process 'host-session)
       (tandem-send-message
@@ -339,6 +343,7 @@ SESSION-ID is the session ID to look for."
                             (format "*Tandem Guest %s*" session-id)))))
           (process-put process 'buffer new-buffer)
           (with-current-buffer new-buffer
+            (setq tandem-mode t)
             (setq tandem-process process)
             (setq tandem-session-id session-id))
           (switch-to-buffer new-buffer)
@@ -356,6 +361,7 @@ SESSION-ID is the session ID to look for."
         (process-send-eof tandem-process)
         (delete-process tandem-process)
         (message "Closed tandem session %s" tandem-session-id)
+        (setq tandem-mode nil)
         (setq tandem-process nil)
         (setq tandem-session-id nil))
     (message "No tandem session in current buffer")))
