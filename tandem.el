@@ -310,7 +310,9 @@ SESSION-ID is the session ID to look for."
          '(end :row 0 :column 0)
          (cons 'text (save-excursion
                        (widen)
-                       (buffer-string)))))))))
+                       (buffer-substring-no-properties
+                        (point-min)
+                        (point-max))))))))))
 
 (defun tandem-join-session ()
   "Join an existing Tandem session."
