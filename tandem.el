@@ -82,8 +82,7 @@ END end of the new region."
     (add-to-list 'tandem-positions
                  (cons begin (tandem-row-column begin)))
     (add-to-list 'tandem-positions
-                 (cons end (tandem-row-column end)))
-    (setq this-command nil)))
+                 (cons end (tandem-row-column end)))))
 (add-hook 'before-change-functions 'tandem-before-change-hook)
 
 (defun tandem-after-change-hook (begin end old-text-len)
