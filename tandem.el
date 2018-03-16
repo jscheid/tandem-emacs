@@ -34,10 +34,20 @@
 (require 'json)
 (require 'seq)
 
-(defvar tandem-uuid-regexp
+(defconst tandem-log-level-trace 0)
+(defconst tandem-log-level-debug 1)
+(defconst tandem-log-level-info 2)
+(defconst tandem-log-level-warn 3)
+(defconst tandem-log-level-error 4)
+
+(defconst tandem-log-level-names '(trace debug info warn error))
+
+(defconst tandem-uuid-regexp
   (eval-when-compile
     (mapconcat (lambda (x) (format "[[:xdigit:]]\\{%s\\}" x))
                '(8 4 4 4 12) "-")))
+
+(defvar tandem-log-level tandem-log-level-info)
 
 (defvar-local tandem-process nil)
 (defvar-local tandem-positions nil)
@@ -68,7 +78,6 @@ BEGIN begin of the new region.
 END end of the new region."
   (when (and (local-variable-p 'tandem-process)
              tandem-process)
-    (message "before change: %s %s %S" begin end this-command)
     (add-to-list 'tandem-positions
                  (cons begin (tandem-row-column begin)))
     (add-to-list 'tandem-positions
@@ -106,10 +115,25 @@ OLD-TEXT-LEN length of the old region."
     (setq tandem-positions nil)))
 (add-hook 'after-change-functions 'tandem-after-change-hook)
 
-(defun tandem-error (&rest fmtargs)
-  "Log an error.
+(defun tandem--log (level &rest fmtargs)
+  "Log a message.
+LEVEL the level to log at.
 FMTARGS passed to `format' as-is."
-  (message "tandem: error: %s" (apply 'format fmtargs)))
+  (when (>= level tandem-log-level)
+    (message "tandem: %s %s"
+             (nth level tandem-log-level-names)
+             (apply 'format fmtargs))))
+
+(defun tandem--trace (&rest fmtargs)
+  "Log a message at trace level.
+LEVEL the level to log at.
+FMTARGS passed to `format' as-is."
+  (apply 'tandem--log tandem-log-level-trace fmtargs))
+
+(defun tandem--error (&rest fmtargs)
+  "Log a message at error level.
+FMTARGS passed to `format' as-is."
+  (apply 'tandem--log tandem-log-level-error fmtargs))
 
 (defun tandem-send-message (process type &rest payload)
   "Send a message to the tandem agent.
@@ -119,7 +143,7 @@ PAYLOAD is the message payload."
   (let* ((message (list :type type :version 1 :payload payload))
          (packet (concat (json-encode message)
                          "\n")))
-    (message "tandem: sending %S" packet)
+    (tandem--trace "sending %S" packet)
     (process-send-string process packet)))
 
 (defun tandem-handle-message-write-request (process payload)
@@ -195,13 +219,13 @@ JSON message."
         (type (plist-get message :type))
         (payload (plist-get message :payload)))
     (if (/= version 1)
-        (tandem-error
+        (tandem--error
          "Received message with unsupported version: %s"
          version)
       (let ((handler-func
              (intern (format "tandem-handle-message-%s" type))))
         (if (not (fboundp handler-func))
-            (tandem-error
+            (tandem--error
              "Received unsupported message type: %s (not found: %S)"
              type
              handler-func)
@@ -226,6 +250,7 @@ JSON message."
                      (number-to-string (+ 40000 (random 20000))))
            :coding 'utf-8
            :filter (lambda (process string)
+                     (tandem--trace "received chunk %S" string)
                      (let ((ndx 0)
                            (input-buffer
                             (process-get process 'input-buffer)))
