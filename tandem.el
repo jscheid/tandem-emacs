@@ -59,6 +59,7 @@
   "Turn a point into a row/column plist.
 POINT the point for which to return row and column."
   (save-excursion
+    (widen)
     (goto-char point)
     (list :row (- (line-number-at-pos point) 1)
           :column (current-column))))
