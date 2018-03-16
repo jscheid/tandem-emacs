@@ -164,7 +164,8 @@ PAYLOAD is the deserialized message payload."
 (defun tandem-save-session-id-to-kill-ring (session-id)
   "Save SESSION-ID to kill ring unless it's already there."
   (unless (string= (car kill-ring) session-id)
-    (kill-new session-id)))
+    (kill-new session-id))
+  (message "Tandem session ID %s saved to kill ring" session-id))
 
 (defun tandem-handle-message-session-info (process payload)
   "Handle the `session-info' message.
@@ -173,7 +174,6 @@ PAYLOAD is the deserialized message payload."
   (with-current-buffer (process-get process 'buffer)
     (let ((session-id (plist-get payload :session_id)))
       (tandem-save-session-id-to-kill-ring session-id)
-      (message "Tandem session ID %s saved to kill ring" session-id)
       (setq tandem-session-id session-id))))
 
 (defun tandem-goto-location (location)
@@ -364,6 +364,15 @@ SESSION-ID is the session ID to look for."
         (setq tandem-mode nil)
         (setq tandem-process nil)
         (setq tandem-session-id nil))
+    (message "No tandem session in current buffer")))
+
+(defun tandem-show-session ()
+  "Show the Tandem session for the current buffer.
+
+Also copy it to the kill ring"
+  (interactive)
+  (if tandem-session-id
+      (tandem-save-session-id-to-kill-ring tandem-session-id)
     (message "No tandem session in current buffer")))
 
 (provide 'tandem)

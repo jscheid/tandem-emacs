@@ -40,6 +40,12 @@ This hosts a session for the current buffer.
 The session ID will be shown in the minibuffer and copied to the kill
 ring.
 
+### Getting the ID for an Active Session
+
+    M-x tandem-show-session
+    
+This shows the session ID and copies it to the kill ring.
+
 ### Killing a Session
 
     M-x tandem-kill-session
