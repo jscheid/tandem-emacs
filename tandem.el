@@ -265,7 +265,18 @@ SESSION-ID is the session ID to look for."
   (let ((process (tandem-create-process)))
     (process-put process 'buffer (current-buffer))
     (setq tandem-process process)
-    (tandem-send-message process 'host-session)))
+    (tandem-send-message process 'host-session)
+    (tandem-send-message
+     process
+     'new-patches
+     :patch_list
+     (list
+      (list
+       '(start :row 0 :column 0)
+       '(end :row 0 :column 0)
+       (cons 'text (save-excursion
+                     (widen)
+                     (buffer-string))))))))
 
 (defun tandem-join-session ()
   "Join an existing Tandem session."
