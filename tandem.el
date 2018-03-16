@@ -159,13 +159,18 @@ PAYLOAD is the deserialized message payload."
                          'write-request-ack
                          :seq seq)))
 
+(defun tandem-save-session-id-to-kill-ring (session-id)
+  "Save SESSION-ID to kill ring unless it's already there."
+  (unless (string= (car kill-ring) session-id)
+    (kill-new session-id)))
+
 (defun tandem-handle-message-session-info (process payload)
   "Handle the `session-info' message.
 PROCESS is the process from which the message was received.
 PAYLOAD is the deserialized message payload."
   (with-current-buffer (process-get process 'buffer)
     (let ((session-id (plist-get payload :session_id)))
-      (kill-new session-id)
+      (tandem-save-session-id-to-kill-ring session-id)
       (message "Tandem session ID %s saved to kill ring" session-id)
       (setq tandem-session-id session-id))))
 
@@ -288,21 +293,24 @@ SESSION-ID is the session ID to look for."
   "Host a Tandem session for the current buffer."
   (interactive)
 
-  (let ((process (tandem-create-process)))
-    (process-put process 'buffer (current-buffer))
-    (setq tandem-process process)
-    (tandem-send-message process 'host-session)
-    (tandem-send-message
-     process
-     'new-patches
-     :patch_list
-     (list
-      (list
-       '(start :row 0 :column 0)
-       '(end :row 0 :column 0)
-       (cons 'text (save-excursion
-                     (widen)
-                     (buffer-string))))))))
+  (if tandem-session-id
+      (message "This buffer is already running a Tandem session with ID %s"
+               tandem-session-id)
+    (let ((process (tandem-create-process)))
+      (process-put process 'buffer (current-buffer))
+      (setq tandem-process process)
+      (tandem-send-message process 'host-session)
+      (tandem-send-message
+       process
+       'new-patches
+       :patch_list
+       (list
+        (list
+         '(start :row 0 :column 0)
+         '(end :row 0 :column 0)
+         (cons 'text (save-excursion
+                       (widen)
+                       (buffer-string)))))))))
 
 (defun tandem-join-session ()
   "Join an existing Tandem session."
