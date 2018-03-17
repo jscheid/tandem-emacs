@@ -141,7 +141,7 @@ FMTARGS passed to `format' as-is."
   (apply 'tandem--log tandem-log-level-error fmtargs))
 
 (defun tandem-rename-agent-log-buffer ()
-  "Rename the log buffer"
+  "Rename the log buffer."
   (let ((new-name (format "*Tandem Agent Log %s*" tandem-session-id)))
     (with-current-buffer (process-get tandem-process 'agent-log-buffer)
       (rename-buffer new-name t))))
@@ -258,7 +258,8 @@ JSON message."
           (cons (concat "PYTHONPATH=" tandem-agent-path)
                 process-environment))
          (agent-log-buffer
-          (generate-new-buffer (generate-new-buffer-name "*Tandem Agent Log*")))
+          (generate-new-buffer
+           (generate-new-buffer-name "*Tandem Agent Log*")))
          (process
           (make-process
            :connection-type 'pipe
@@ -273,16 +274,21 @@ JSON message."
            :coding 'utf-8
            :stderr agent-log-buffer
            :sentinel (lambda (process event)
-                       (tandem--trace "agent process status change, event %S, new status %S" event (process-status process))
+                       (tandem--trace
+                        "agent process status change, event %S, status %S"
+                        event
+                        (process-status process))
                        (unless (process-live-p process)
-                         (with-current-buffer (process-get process 'buffer)
+                         (with-current-buffer
+                             (process-get process 'buffer)
                            (setq tandem-mode nil)
                            (setq tandem-session-id nil)
                            (setq tandem-process nil))
                          (unless tandem-keep-agent-log
                            (sleep-for 0.05)
                            (let ((kill-buffer-query-functions nil))
-                             (kill-buffer (process-get process 'agent-log-buffer))))))
+                             (kill-buffer
+                              (process-get process 'agent-log-buffer))))))
            :filter (lambda (process string)
                      (tandem--trace "received chunk %S" string)
                      (let ((ndx 0)
@@ -324,8 +330,9 @@ SESSION-ID is the session ID to look for."
   (interactive)
 
   (if tandem-session-id
-      (message "This buffer is already running a Tandem session with ID %s"
-               tandem-session-id)
+      (message
+       "This buffer is already running a Tandem session with ID %s"
+       tandem-session-id)
     (let ((process (tandem-create-process)))
       (process-put process 'buffer (current-buffer))
       (setq tandem-mode t)
