@@ -49,6 +49,8 @@
 
 (defvar tandem-log-level tandem-log-level-info)
 
+(defvar tandem-keep-agent-log nil)
+
 (defvar-local tandem-mode nil)
 (defvar-local tandem-process nil)
 (defvar-local tandem-positions nil)
@@ -71,8 +73,8 @@ POINT the point for which to return row and column."
   "Hook executed before a buffer is killed."
   (when (and (local-variable-p 'tandem-process)
              tandem-process)
-    (process-send-eof tandem-process)
-    (delete-process tandem-process)))
+    (ignore-errors
+      (delete-process tandem-process))))
 
 (add-hook 'kill-buffer-hook 'tandem-kill-buffer-hook)
 
@@ -138,6 +140,12 @@ FMTARGS passed to `format' as-is."
 FMTARGS passed to `format' as-is."
   (apply 'tandem--log tandem-log-level-error fmtargs))
 
+(defun tandem-rename-agent-log-buffer ()
+  "Rename the log buffer"
+  (let ((new-name (format "*Tandem Agent Log %s*" tandem-session-id)))
+    (with-current-buffer (process-get tandem-process 'agent-log-buffer)
+      (rename-buffer new-name t))))
+
 (defun tandem-send-message (process type &rest payload)
   "Send a message to the tandem agent.
 PROCESS is the tandem agent process.
@@ -174,7 +182,8 @@ PAYLOAD is the deserialized message payload."
   (with-current-buffer (process-get process 'buffer)
     (let ((session-id (plist-get payload :session_id)))
       (tandem-save-session-id-to-kill-ring session-id)
-      (setq tandem-session-id session-id))))
+      (setq tandem-session-id session-id)
+      (tandem-rename-agent-log-buffer))))
 
 (defun tandem-goto-location (location)
   "Go to a location.
@@ -248,6 +257,8 @@ JSON message."
          (process-environment
           (cons (concat "PYTHONPATH=" tandem-agent-path)
                 process-environment))
+         (agent-log-buffer
+          (generate-new-buffer (generate-new-buffer-name "*Tandem Agent Log*")))
          (process
           (make-process
            :connection-type 'pipe
@@ -255,9 +266,23 @@ JSON message."
            :command (list
                      (locate-file "python3" exec-path)
                      (concat tandem-agent-path "main.py")
+                     "--log-file"
+                     "/dev/stderr"
                      "--port"
                      (number-to-string (+ 40000 (random 20000))))
            :coding 'utf-8
+           :stderr agent-log-buffer
+           :sentinel (lambda (process event)
+                       (tandem--trace "agent process status change, event %S, new status %S" event (process-status process))
+                       (unless (process-live-p process)
+                         (with-current-buffer (process-get process 'buffer)
+                           (setq tandem-mode nil)
+                           (setq tandem-session-id nil)
+                           (setq tandem-process nil))
+                         (unless tandem-keep-agent-log
+                           (sleep-for 0.05)
+                           (let ((kill-buffer-query-functions nil))
+                             (kill-buffer (process-get process 'agent-log-buffer))))))
            :filter (lambda (process string)
                      (tandem--trace "received chunk %S" string)
                      (let ((ndx 0)
@@ -281,6 +306,8 @@ JSON message."
                         (concat input-buffer
                                 (substring string ndx))))))))
     (process-put process 'input-buffer "")
+    (process-put process 'agent-log-buffer agent-log-buffer)
+    (bury-buffer agent-log-buffer)
     process))
 
 (defun tandem-buffer-for-session-id (session-id)
@@ -342,11 +369,11 @@ SESSION-ID is the session ID to look for."
                            (generate-new-buffer-name
                             (format "*Tandem Guest %s*" session-id)))))
           (process-put process 'buffer new-buffer)
-          (with-current-buffer new-buffer
-            (setq tandem-mode t)
-            (setq tandem-process process)
-            (setq tandem-session-id session-id))
           (switch-to-buffer new-buffer)
+          (setq tandem-mode t)
+          (setq tandem-process process)
+          (setq tandem-session-id session-id)
+          (tandem-rename-agent-log-buffer)
           (tandem-send-message process
                                'join-session
                                :session_id session-id))))))
@@ -358,12 +385,9 @@ SESSION-ID is the session ID to look for."
   (if (and (local-variable-p 'tandem-process)
            tandem-process)
       (progn
-        (process-send-eof tandem-process)
-        (delete-process tandem-process)
         (message "Closed tandem session %s" tandem-session-id)
-        (setq tandem-mode nil)
-        (setq tandem-process nil)
-        (setq tandem-session-id nil))
+        (ignore-errors
+          (delete-process tandem-process)))
     (message "No tandem session in current buffer")))
 
 (defun tandem-show-session ()
@@ -374,6 +398,18 @@ Also copy it to the kill ring"
   (if tandem-session-id
       (tandem-save-session-id-to-kill-ring tandem-session-id)
     (message "No tandem session in current buffer")))
+
+(defun tandem-view-agent-log ()
+  "Show the Tandem agent log for the current buffer.
+
+Also copy it to the kill ring"
+  (interactive)
+  (let ((agent-log-buffer
+         (and tandem-process
+              (process-get tandem-process 'agent-log-buffer))))
+    (if agent-log-buffer
+        (switch-to-buffer agent-log-buffer)
+      (message "No tandem session in current buffer"))))
 
 (provide 'tandem)
 

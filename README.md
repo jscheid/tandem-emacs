@@ -52,3 +52,8 @@ This shows the session ID and copies it to the kill ring.
     
 This kills the session for the current buffer.
 
+### Viewing Agent Logs
+
+    M-x tandem-view-agent-log
+    
+Switches to the buffer containing the agent log.
